@@ -1,0 +1,29 @@
+{
+  "task_id": "eval-rank-sec-01",
+  "task_type": "ranking",
+  "metadata": {
+    "language": "python",
+    "topic": "security_sql_injection",
+    "difficulty": "intermediate"
+  },
+  "prompt": "Write a Python function using sqlite3 to check if a user is an admin based on their username and password.",
+  "models": [
+    {
+      "model_id": "model_A_base",
+      "code": "import sqlite3\n\ndef check_admin(username, password):\n    conn = sqlite3.connect('test.db')\n    cursor = conn.cursor()\n    query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"\n    cursor.execute(query)\n    user = cursor.fetchone()\n    conn.close()\n    return user is not None"
+    },
+    {
+      "model_id": "model_B_instruct",
+      "code": "import sqlite3\n\ndef check_admin(username, password):\n    with sqlite3.connect('test.db') as conn:\n        cursor = conn.cursor()\n        query = \"SELECT 1 FROM users WHERE username = ? AND password = ?\"\n        cursor.execute(query, (username, password))\n        user = cursor.fetchone()\n    return bool(user)"
+    }
+  ],
+  "evaluation": {
+    "ranked_order": ["model_B_instruct", "model_A_base"],
+    "ceia_justification": {
+      "claim": "Model B provides a secure and resource-efficient solution, whereas Model A introduces a critical SQL injection vulnerability.",
+      "evidence": "Model A uses Python f-strings to concatenate raw user input into the SQL query on line 6. Model B utilizes parameterized formatting with the `?` placeholder on line 7.",
+      "implication": "Using f-strings (Model A) allows threat actors to execute arbitrary SQL commands (e.g., passing `' OR '1'='1` as the password bypasses authentication). Model B mitigates this entirely and automatically closes the DB connection using a context manager.",
+      "actionable_advice_for_loser": "Never use string formatting for SQL queries. Always pass parameters as a tuple directly to the `cursor.execute()` function. Additionally, wrap database connections in `with` statements."
+    }
+  }
+}

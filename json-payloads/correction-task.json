@@ -1,0 +1,27 @@
+{
+  "task_id": "eval-correct-refact-03",
+  "task_type": "correction",
+  "metadata": {
+    "language": "python",
+    "topic": "code_duplication_dry_principles",
+    "difficulty": "medium"
+  },
+  "submission": {
+    "model_id": "model_D_legacy",
+    "prompt": "Provide a Python module for calculating final checkout prices for Standard and VIP customers.",
+    "code": "def calculate_standard_discount(price):\n    discount = price * 0.10\n    return price - discount\n\ndef calculate_vip_discount(price):\n    # VIPs get a 25% discount\n    discount = price * 0.20\n    return price - discount"
+  },
+  "evaluation": {
+    "issues_flagged": [
+      "DRY Principle Violation: Exact same logic duplicated over two functions.",
+      "Logical Bug: Comment says VIP discount is 25% but code applies 20% multiplier."
+    ],
+    "ceia_justification": {
+      "claim": "The code violates the DRY (Don't Repeat Yourself) principle and contains an explicit logical contradiction.",
+      "evidence": "Both functions perform `discount = price * rate` followed by subtraction. The VIP function comments '25%' but explicitly multiplies by `0.20`.",
+      "implication": "If checkout business rules change (e.g. applying taxes first), developers must update mathematical logic in multiple functions leading to bugs. Currently, VIP customers are also being incorrectly overcharged.",
+      "actionable_advice": "Refactor by converting the hardcoded percentages into a `discount_rate` argument within a unified `calculate_discount(price, rate)` function."
+    },
+    "corrected_code": "def calculate_discount(price, discount_rate):\n    if not (0.0 <= discount_rate <= 1.0):\n        raise ValueError(\"Discount rate must be between 0.0 and 1.0\")\n    return price * (1 - discount_rate)\n\nstandard_price = calculate_discount(100.0, 0.10)\nvip_price = calculate_discount(100.0, 0.25) # Bug fixed"
+  }
+}
