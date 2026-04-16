@@ -1,5 +1,124 @@
 # C# ConfigLoader Evaluation
 
+## Task Prompt
+
+An AI-generated C# utility reads configuration from a JSON file and returns a settings object. A tester reports that the application sometimes throws `NullReferenceException` and that file handles accumulate over time when the method is called repeatedly. Identify the bugs and provide a corrected version.
+
+```csharp
+using System;
+using System.IO;
+using System.Text.Json;
+
+public class ConfigLoader
+{
+    public Config Load(string path)
+    {
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var reader = new StreamReader(stream);
+        var json = reader.ReadToEnd();
+        var config = JsonSerializer.Deserialize<Config>(json);
+        return config;
+    }
+}
+
+public class Config
+{
+    public string ServerUrl { get; set; }
+    public int Port { get; set; }
+}
+```
+
+When called repeatedly under load:
+```
+System.IO.IOException: Too many open files
+```
+
+When the JSON file contains `"null"` or is empty:
+```
+System.NullReferenceException: Object reference not set to an instance of an object.
+```
+
+---
+
+## Candidate Responses
+
+### Response A
+There are **two bugs** here — a resource leak and a null reference — both extremely common in AI-generated C# code.
+
+**Bug 1: Resource Leak — Missing `using` (IDisposable)**
+`FileStream` and `StreamReader` both implement `IDisposable`. They hold unmanaged resources (file handles). Without calling `Dispose()`, these handles remain open until the garbage collector eventually runs. But here's the critical point: **the GC does NOT call `Dispose()`** — it may call a finalizer if one exists, but that's non-deterministic and unreliable.
+Under load, each call to `Load()` opens a file handle that never closes. Eventually, the OS limit is reached and you get `IOException: Too many open files`.
+
+**Bug 2: Null Reference — No Validation of Deserialized Result**
+`JsonSerializer.Deserialize<Config>(json)` returns `null` when:
+- The JSON content is literally `"null"`
+- The file is empty (though this may throw `JsonException` instead)
+- Deserialization fails to produce an object
+Returning `null` from `Load()` means any caller doing `config.ServerUrl` gets a `NullReferenceException`.
+
+**Fix:**
+```csharp
+public class ConfigLoader
+{
+    public Config Load(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var reader = new StreamReader(stream);
+        var json = reader.ReadToEnd();
+        var config = JsonSerializer.Deserialize<Config>(json);
+
+        if (config == null)
+            throw new InvalidOperationException($"Failed to deserialize config from {path}");
+
+        return config;
+    }
+}
+```
+
+**Alternative — even simpler:**
+```csharp
+public Config Load(string path)
+{
+    var json = File.ReadAllText(path);
+    return JsonSerializer.Deserialize<Config>(json)
+        ?? throw new InvalidOperationException($"Failed to deserialize config from {path}");
+}
+```
+
+### Response B
+The streams are not being closed. Add `using` statements:
+
+```csharp
+public Config Load(string path)
+{
+    using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+    using var reader = new StreamReader(stream);
+    var json = reader.ReadToEnd();
+    var config = JsonSerializer.Deserialize<Config>(json);
+    return config;
+}
+```
+`using var` ensures the stream and reader are disposed when the method returns.
+
+### Response C
+The problem is that you need to close the file after reading. Add `Close()` calls:
+
+```csharp
+public Config Load(string path)
+{
+    var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+    var reader = new StreamReader(stream);
+    var json = reader.ReadToEnd();
+    var config = JsonSerializer.Deserialize<Config>(json);
+    reader.Close();
+    stream.Close();
+    return config;
+}
+```
+Calling `Close()` on the reader and stream releases the file handles. This prevents the file handle leak.
+
+---
+
 ## Evaluation Guidelines
 > [!IMPORTANT]
 > - Responses MUST identify two distinct bugs: the file handle leak and the null reference exception.
