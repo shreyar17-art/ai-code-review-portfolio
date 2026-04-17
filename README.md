@@ -13,4 +13,4 @@ Welcome to my AI Code Review Showcase! I am Shreya R, a Software Engineering Eva
 *   **Security Auditing:** Identifying SQL injection, XSS, and authorization flaws.
 *   **Performance Optimization:** Evaluating algorithmic complexity, memory usage, and React rendering cycles.
 *   **Structured Argumentation:** Utilizing the Claim → Evidence → Implication → Actionable justification framework.
-*   **Multi-Language Expertise:** Deep proficiency evaluating Python, JavaScript/React, and Java code.
+*   **Multi-Language Expertise:** Deep proficiency evaluating Python, JavaScript/React, C#, and Java code.
